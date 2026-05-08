@@ -1,7 +1,3 @@
-import { GoogleGenAI, Type } from "@google/genai";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-
 export interface ClothingInfo {
   category: string;
   color: string;
@@ -16,43 +12,18 @@ export interface ClothingInfo {
 }
 
 export async function analyzeClothingImage(base64Image: string): Promise<ClothingInfo> {
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { inlineData: { mimeType: "image/jpeg", data: base64Image } },
-          { text: "Analyze this image to isolate the ONE MAIN clothing item. Identify its category (tops, bottoms, dresses, outerwear, shoes, bags, accessories), color, material, thickness, seasons, and styles. IMPORTANT: Return a bounding box (detectedObject.box_2d) that wraps ONLY the main garment itself. Do NOT include the person's head, limbs, skin, background, or other accessories like bags, jewelry, or props. We want to 'abstract' the image to focus purely on the clothing as if it were a flat lay on a white background. Return JSON." }
-        ]
-      }
-    ],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          category: { type: Type.STRING, description: "Must be one of: tops, bottoms, dresses, outerwear, shoes, bags, accessories" },
-          color: { type: Type.STRING },
-          material: { type: Type.STRING },
-          thickness: { type: Type.STRING, description: "Must be one of: thin, medium, thick" },
-          seasons: { type: Type.ARRAY, items: { type: Type.STRING } },
-          styles: { type: Type.ARRAY, items: { type: Type.STRING } },
-          detectedObject: {
-            type: Type.OBJECT,
-            properties: {
-              box_2d: { type: Type.ARRAY, items: { type: Type.NUMBER }, description: "[ymin, xmin, ymax, xmax] normalized 0-1000" },
-              label: { type: Type.STRING }
-            },
-            required: ["box_2d", "label"]
-          }
-        },
-        required: ["category", "color", "material", "thickness", "seasons", "styles", "detectedObject"]
-      }
-    }
+  const response = await fetch('/api/analyze-clothing', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ base64Image })
   });
-
-  return JSON.parse(response.text);
+  
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to analyze clothing');
+  }
+  
+  return response.json();
 }
 
 export interface OutfitItem {
@@ -111,46 +82,19 @@ For each outfit:
 
 Return the result strictly in JSON format.`;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    config: {
-      responseMimeType: "application/json",
-      systemInstruction: "You are a professional fashion stylist. You help women build outfits based on their wardrobe. Return JSON with 'recommendations' array.",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          recommendations: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                items: { 
-                  type: Type.ARRAY, 
-                  items: { 
-                    type: Type.OBJECT,
-                    properties: {
-                      name: { type: Type.STRING },
-                      category: { type: Type.STRING },
-                      id: { type: Type.STRING }
-                    },
-                    required: ["name", "category"]
-                  }
-                },
-                reason: { type: Type.STRING },
-                style: { type: Type.STRING },
-                visualPrompt: { type: Type.STRING }
-              },
-              required: ["items", "reason", "style", "visualPrompt"]
-            }
-          }
-        }
-      }
-    }
+  const response = await fetch('/api/outfit-recommendations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt })
   });
 
-  const parsed = JSON.parse(response.text);
-  return parsed.recommendations;
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to get recommendations');
+  }
+
+  const data = await response.json();
+  return data.recommendations;
 }
 
 export async function getDailyInspiration(
@@ -174,38 +118,17 @@ export async function getDailyInspiration(
   
   Return JSON with an 'inspirations' array.`;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    config: {
-      responseMimeType: "application/json",
-      systemInstruction: "You are a fashion magazine editor. Provide curated global fashion trends. Return JSON with 'inspirations' array.",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          inspirations: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                title: { type: Type.STRING },
-                source: { type: Type.STRING },
-                styles: { type: Type.ARRAY, items: { type: Type.STRING } },
-                items: { type: Type.ARRAY, items: { type: Type.STRING } },
-                temp: { type: Type.STRING },
-                scene: { type: Type.STRING },
-                celebrity: { type: Type.STRING },
-                url: { type: Type.STRING },
-                imageUrl: { type: Type.STRING, description: "Unsplash search keywords based on the look" }
-              },
-              required: ["title", "source", "styles", "items", "temp", "scene", "celebrity", "url", "imageUrl"]
-            }
-          }
-        }
-      }
-    }
+  const response = await fetch('/api/daily-inspiration', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt })
   });
 
-  const parsed = JSON.parse(response.text);
-  return parsed.inspirations;
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to fetch inspiration');
+  }
+
+  const data = await response.json();
+  return data.inspirations;
 }

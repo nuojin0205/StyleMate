@@ -26,6 +26,8 @@ export default function Home() {
 
   const [generatedImages, setGeneratedImages] = useState<Record<number, string>>({});
 
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     fetchWardrobe();
     fetchMeasurements();
@@ -80,11 +82,13 @@ export default function Home() {
 
   const fetchInspirations = async () => {
     setLoadingInspo(true);
+    setError(null);
     try {
       const ins = await getDailyInspiration(weather, style);
       setInspirations(ins);
     } catch (err) {
       console.error("Error fetching inspirations:", err);
+      setError("Unable to connect to AI service. Please check your API configuration on Vercel.");
     } finally {
       setLoadingInspo(false);
     }
@@ -95,13 +99,15 @@ export default function Home() {
     setRecommendations([]);
     setActiveIndex(0);
     setGeneratedImages({});
+    setError(null);
     try {
       const recs = await getOutfitRecommendations(wardrobe, weather, style, scene, measurements);
       if (recs && Array.isArray(recs)) {
         setRecommendations(recs);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error generating outfit:", err);
+      setError(err.message || "Outfit generation failed. Check your connection.");
     } finally {
       setLoading(false);
     }
@@ -234,6 +240,16 @@ export default function Home() {
             ))}
           </div>
         </div>
+
+        {error && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="bg-red-50 border border-red-100 p-4 rounded-2xl"
+          >
+            <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest text-center">{error}</p>
+          </motion.div>
+        )}
 
         <button 
           onClick={generateOutfit}
