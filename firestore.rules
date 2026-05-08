@@ -1,0 +1,74 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isEmailVerified() { return request.auth.token.email_verified == true; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // --- Entity Validations ---
+    function isValidUser(data) {
+      return data.userId == request.auth.uid
+        && data.email is string
+        && data.email.size() < 256;
+    }
+
+    function isValidClothing(data) {
+      return data.userId == request.auth.uid
+        && data.category in ['tops', 'bottoms', 'dresses', 'outerwear', 'shoes', 'bags', 'accessories']
+        && data.imageUrl is string && data.imageUrl.size() < 1024
+        && (data.thickness == null || data.thickness in ['thin', 'medium', 'thick'])
+        && (data.seasons == null || data.seasons is list)
+        && (data.styles == null || data.styles is list);
+    }
+
+    function isValidOutfit(data) {
+      return data.userId == request.auth.uid
+        && data.items is list && data.items.size() > 0
+        && (data.style == null || data.style is string);
+    }
+
+    // --- Rules ---
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming()) 
+        && incoming().diff(existing()).affectedKeys().hasOnly(['preferences', 'name']);
+      
+      match /clothes/{itemId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(itemId) && isValidClothing(incoming())
+          && incoming().createdAt == request.time;
+        allow update: if isOwner(userId) && isValidClothing(incoming())
+          && incoming().diff(existing()).affectedKeys().hasOnly(['category', 'color', 'material', 'thickness', 'seasons', 'styles', 'scenes'])
+          && incoming().imageUrl == existing().imageUrl;
+        allow delete: if isOwner(userId);
+      }
+
+      match /outfits/{outfitId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(outfitId) && isValidOutfit(incoming())
+          && incoming().date == request.time;
+        allow update: if isOwner(userId) && isValidOutfit(incoming())
+          && incoming().diff(existing()).affectedKeys().hasOnly(['isSaved', 'reflection']);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    match /inspiration/{inspId} {
+      allow list: if true; // Publicly readable
+      allow get: if true;
+      allow write: if false; // Only admin via console or restricted script
+    }
+  }
+}

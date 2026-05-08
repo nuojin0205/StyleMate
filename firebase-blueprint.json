@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and preferences",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "preferences": {
+          "type": "object",
+          "properties": {
+            "styles": { "type": "array", "items": { "type": "string" } },
+            "location": { "type": "string" }
+          }
+        }
+      },
+      "required": ["userId", "email"]
+    },
+    "ClothingItem": {
+      "title": "Clothing Item",
+      "description": "A single piece of clothing in the user's wardrobe",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "category": { "type": "string", "enum": ["tops", "bottoms", "dresses", "outerwear", "shoes", "bags", "accessories"] },
+        "imageUrl": { "type": "string" },
+        "color": { "type": "string" },
+        "material": { "type": "string" },
+        "thickness": { "type": "string", "enum": ["thin", "medium", "thick"] },
+        "seasons": { "type": "array", "items": { "type": "string" } },
+        "styles": { "type": "array", "items": { "type": "string" } },
+        "scenes": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "category", "imageUrl"]
+    },
+    "Outfit": {
+      "title": "Outfit",
+      "description": "A combination of clothing items for a specific day/request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "items": { "type": "array", "items": { "type": "string" } },
+        "date": { "type": "string", "format": "date-time" },
+        "weather": { "type": "object" },
+        "style": { "type": "string" },
+        "reason": { "type": "string" },
+        "isSaved": { "type": "boolean" }
+      },
+      "required": ["userId", "items"]
+    },
+    "Inspiration": {
+      "title": "Inspiration",
+      "description": "Reference outfit from magazines or stars",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "source": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "styles": { "type": "array", "items": { "type": "string" } },
+        "seasons": { "type": "array", "items": { "type": "string" } },
+        "description": { "type": "string" },
+        "celebrity": { "type": "string" }
+      },
+      "required": ["imageUrl"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "User profile data" },
+    "/users/{userId}/clothes/{itemId}": { "schema": "ClothingItem", "description": "User's individual clothing items" },
+    "/users/{userId}/outfits/{outfitId}": { "schema": "Outfit", "description": "Saved or suggested outfits for the user" },
+    "/inspiration/{inspId}": { "schema": "Inspiration", "description": "Global fashion inspiration feed" }
+  }
+}

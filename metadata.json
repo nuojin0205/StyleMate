@@ -1,0 +1,13 @@
+{
+  "name": "StyleMate",
+  "description": "An intelligent AI outfit recommendation app for women. Organize your digital wardrobe, get personalized daily styling suggestions based on weather and style, and find fashion inspiration.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "AI-powered outfit recommendations",
+    "Digital wardrobe management",
+    "Style inspiration from magazines and celebrities",
+    "Smart shopping recommendations"
+  ]
+}
