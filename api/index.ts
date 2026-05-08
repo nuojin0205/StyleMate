@@ -7,19 +7,30 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Handle both /api/... and root relative paths
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+// Helper to get AI client with fresh env variables
+const getAIClient = () => {
+  const key = process.env.GEMINI_API_KEY || '';
+  if (!key) throw new Error("GEMINI_API_KEY_MISSING");
+  return new GoogleGenAI({ apiKey: key });
+};
 
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", hasKey: !!process.env.GEMINI_API_KEY });
+  const key = process.env.GEMINI_API_KEY || '';
+  const maskedKey = key.length > 8 
+    ? `${key.slice(0, 4)}...${key.slice(-4)}`
+    : (key ? 'Key found but too short' : 'Not found');
+    
+  res.json({ 
+    status: "ok", 
+    hasKey: !!key,
+    keySnapshot: maskedKey
+  });
 });
 
 app.post("/api/analyze-clothing", async (req, res) => {
   try {
     const { base64Image } = req.body;
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: "GEMINI_API_KEY is not configured in Vercel Environment Variables" });
-    }
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: "gemini-1.5-flash", 
       contents: [
@@ -68,9 +79,7 @@ app.post("/api/analyze-clothing", async (req, res) => {
 app.post("/api/outfit-recommendations", async (req, res) => {
   try {
     const { prompt } = req.body;
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: "GEMINI_API_KEY is not configured in Vercel Environment Variables" });
-    }
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: "gemini-1.5-flash",
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -122,9 +131,7 @@ app.post("/api/outfit-recommendations", async (req, res) => {
 app.post("/api/daily-inspiration", async (req, res) => {
   try {
     const { prompt } = req.body;
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: "GEMINI_API_KEY is not configured in Vercel Environment Variables" });
-    }
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: "gemini-1.5-flash",
       contents: [{ role: 'user', parts: [{ text: prompt }] }],

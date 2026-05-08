@@ -265,13 +265,23 @@ export default function Home() {
                   3. 添加后执行一次 <span className="font-bold text-accent">Redeploy</span>。
                 </p>
                 <button 
-                  onClick={async () => {
+                  onClick={async (e) => {
+                    const btn = e.currentTarget;
+                    btn.innerText = '正在检测...';
                     try {
                       const res = await fetch('/api/health');
-                      const data = await res.json();
-                      alert(`API 配置检测：\n状态：${data.status}\nKey 已识别：${data.hasKey ? '是' : '否'}`);
-                    } catch (e) {
-                      alert('无法连接到 API 地址，请确认已导出到 GitHub 并部署。');
+                      if (!res.ok) {
+                        const text = await res.text();
+                        alert(`连接失败！\n\nHTTP 状态码: ${res.status}\n返回内容: ${text.slice(0, 100)}\n\n这通常意味着 Vercel 接口路由没生效，请确认是通过 Export 部署的。`);
+                      } else {
+                        const data = await res.json();
+                        alert(`✅ API 连接成功！\n\n1. 连通状态：${data.status}\n2. 环境 Key 存在：${data.hasKey ? '是' : '否'}\n3. Key 预览：${data.keySnapshot}\n\n如果提示 Found 但报错 400，说明 Key 复制错了；如果提示 Not found，说明环境变量名不对。`);
+                      }
+                    } catch (err: any) {
+                      console.error(err);
+                      alert(`无法连接！错误信息: ${err.message}\n\n请确认已点击 Export to GitHub 并在 Vercel 完成部署。`);
+                    } finally {
+                      btn.innerText = '测试 API 配置';
                     }
                   }}
                   className="text-[9px] uppercase tracking-widest font-bold text-accent border border-accent/20 px-4 py-1.5 rounded-full hover:bg-accent/5 transition-colors"
