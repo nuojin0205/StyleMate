@@ -249,13 +249,37 @@ export default function Home() {
           </div>
         </div>
 
-        {error && (
+      {error && (
           <motion.div 
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
-            className="bg-red-50 border border-red-100 p-4 rounded-2xl"
+            className="bg-red-50 border border-red-100 p-6 rounded-[32px] space-y-4"
           >
-            <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest text-center">{error}</p>
+            <div className="flex flex-col items-center text-center space-y-2">
+              <p className="text-xs text-red-500 font-bold uppercase tracking-widest">{error}</p>
+              <div className="pt-4 space-y-3">
+                <p className="text-[10px] text-ink/40 font-medium leading-relaxed">
+                  如果您在 Vercel 预览：<br/>
+                  1. 请确保已点击编辑器右上角 <span className="font-bold text-accent">"Export to GitHub"</span><br/>
+                  2. 在 Vercel 项目设置中添加环境变量 <span className="font-mono text-accent">GEMINI_API_KEY</span><br/>
+                  3. 添加后执行一次 <span className="font-bold text-accent">Redeploy</span>。
+                </p>
+                <button 
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/health');
+                      const data = await res.json();
+                      alert(`API 配置检测：\n状态：${data.status}\nKey 已识别：${data.hasKey ? '是' : '否'}`);
+                    } catch (e) {
+                      alert('无法连接到 API 地址，请确认已导出到 GitHub 并部署。');
+                    }
+                  }}
+                  className="text-[9px] uppercase tracking-widest font-bold text-accent border border-accent/20 px-4 py-1.5 rounded-full hover:bg-accent/5 transition-colors"
+                >
+                  测试 API 配置
+                </button>
+              </div>
+            </div>
           </motion.div>
         )}
 
