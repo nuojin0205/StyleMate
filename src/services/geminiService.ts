@@ -19,8 +19,15 @@ export async function analyzeClothingImage(base64Image: string): Promise<Clothin
   });
   
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to analyze clothing');
+    const text = await response.text();
+    let errorMessage = 'Failed to analyze clothing';
+    try {
+      const errorData = JSON.parse(text);
+      errorMessage = errorData.error || errorMessage;
+    } catch (e) {
+      errorMessage = `Error ${response.status}: ${text.slice(0, 50)}...`;
+    }
+    throw new Error(errorMessage);
   }
   
   return response.json();
@@ -89,8 +96,15 @@ Return the result strictly in JSON format.`;
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to get recommendations');
+    const text = await response.text();
+    let errorMessage = 'Failed to get recommendations';
+    try {
+      const errorData = JSON.parse(text);
+      errorMessage = errorData.error || errorMessage;
+    } catch (e) {
+      errorMessage = `Error ${response.status}: ${text.slice(0, 50)}...`;
+    }
+    throw new Error(errorMessage);
   }
 
   const data = await response.json();
@@ -125,8 +139,15 @@ export async function getDailyInspiration(
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to fetch inspiration');
+    const text = await response.text();
+    let errorMessage = 'Failed to fetch inspiration';
+    try {
+      const errorData = JSON.parse(text);
+      errorMessage = errorData.error || errorMessage;
+    } catch (e) {
+      errorMessage = `Error ${response.status}: ${text.slice(0, 50)}...`;
+    }
+    throw new Error(errorMessage);
   }
 
   const data = await response.json();

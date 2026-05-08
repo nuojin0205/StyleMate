@@ -1,8 +1,10 @@
 import express from "express";
-import cors from "cors";
-import path from "path";
-import { GoogleGenAI, Type } from "@google/genai";
 import { createServer as createViteServer } from "vite";
+import path from "path";
+// Import our app logic
+// We'll just copy the logic to keep things simple for the environment's current setup
+import cors from "cors";
+import { GoogleGenAI, Type } from "@google/genai";
 
 async function startServer() {
   const app = express();
@@ -14,11 +16,17 @@ async function startServer() {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
   // API Routes
-  app.post("/api/analyze-clothing", async (req, res) => {
+  const router = express.Router();
+
+  router.get("/health", (req, res) => {
+    res.json({ status: "ok", hasKey: !!process.env.GEMINI_API_KEY });
+  });
+
+  router.post("/analyze-clothing", async (req, res) => {
     try {
       const { base64Image } = req.body;
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-1.5-flash",
         contents: [
           {
             role: 'user',
@@ -52,17 +60,17 @@ async function startServer() {
         }
       });
       res.json(JSON.parse(response.text));
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      res.status(500).json({ error: "Failed to analyze image" });
+      res.status(500).json({ error: err.message || "Failed to analyze image" });
     }
   });
 
-  app.post("/api/outfit-recommendations", async (req, res) => {
+  router.post("/outfit-recommendations", async (req, res) => {
     try {
       const { prompt } = req.body;
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-1.5-flash",
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: "application/json",
@@ -99,17 +107,17 @@ async function startServer() {
         }
       });
       res.json(JSON.parse(response.text));
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      res.status(500).json({ error: "Failed to generate recommendations" });
+      res.status(500).json({ error: err.message || "Failed to generate recommendations" });
     }
   });
 
-  app.post("/api/daily-inspiration", async (req, res) => {
+  router.post("/daily-inspiration", async (req, res) => {
     try {
       const { prompt } = req.body;
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-1.5-flash",
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: "application/json",
@@ -140,12 +148,13 @@ async function startServer() {
         }
       });
       res.json(JSON.parse(response.text));
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      res.status(500).json({ error: "Failed to fetch inspiration" });
+      res.status(500).json({ error: err.message || "Failed to fetch inspiration" });
     }
   });
 
+  app.use("/api", router);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

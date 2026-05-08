@@ -86,9 +86,13 @@ export default function Home() {
     try {
       const ins = await getDailyInspiration(weather, style);
       setInspirations(ins);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error fetching inspirations:", err);
-      setError("Unable to connect to AI service. Please check your API configuration on Vercel.");
+      let msg = err.message || "AI Service unavailable.";
+      if (msg.includes("Key") || msg.includes("API")) {
+        msg = "AI 服务的 API Key 无效或未设置。请在 Vercel 或环境配置中检查 GEMINI_API_KEY。";
+      }
+      setError(msg);
     } finally {
       setLoadingInspo(false);
     }
@@ -107,7 +111,11 @@ export default function Home() {
       }
     } catch (err: any) {
       console.error("Error generating outfit:", err);
-      setError(err.message || "Outfit generation failed. Check your connection.");
+      let msg = err.message || "Outfit generation failed.";
+      if (msg.includes("Key") || msg.includes("API") || msg.includes("400")) {
+        msg = "AI 服务的 API Key 无效或未设置。请在 Vercel 环境变量中配置 GEMINI_API_KEY。";
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
