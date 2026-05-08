@@ -23,7 +23,9 @@ app.get("/api/health", (req, res) => {
   res.json({ 
     status: "ok", 
     hasKey: !!key,
-    keySnapshot: maskedKey
+    keySnapshot: maskedKey,
+    isFormatCorrect: key.startsWith('AIzaSy'),
+    environment: process.env.VERCEL ? 'Vercel Production' : 'AI Studio Preview'
   });
 });
 
@@ -69,8 +71,9 @@ app.post("/api/analyze-clothing", async (req, res) => {
   } catch (err: any) {
     console.error("Analysis Error:", err);
     let message = err.message || "Failed to analyze image";
-    if (message.includes("API KEY NOT VALID") || message.includes("400")) {
-      message = "Gemini API Key 校验失败。请在 Vercel 环境变量中检查 GEMINI_API_KEY 是否配置正确。";
+    const errStr = JSON.stringify(err).toLowerCase();
+    if (errStr.includes("api key") || errStr.includes("invalid") || errStr.includes("400")) {
+      message = "Gemini API Key 无效或校验失败。请确认环境变量 GEMINI_API_KEY 是否正确配置，且没有多余的空格。";
     }
     res.status(500).json({ error: message });
   }
@@ -121,8 +124,9 @@ app.post("/api/outfit-recommendations", async (req, res) => {
   } catch (err: any) {
     console.error("Outfit Error:", err);
     let message = err.message || "Failed to generate recommendations";
-    if (message.includes("API KEY NOT VALID") || message.includes("400")) {
-      message = "Gemini API Key 校验失败。请在 Vercel 环境变量中检查 GEMINI_API_KEY 是否配置正确。";
+    const errStr = JSON.stringify(err).toLowerCase();
+    if (errStr.includes("api key") || errStr.includes("invalid") || errStr.includes("400")) {
+      message = "Gemini API Key 无效或校验失败。请检查 Vercel 环境变量 GEMINI_API_KEY。";
     }
     res.status(500).json({ error: message });
   }
@@ -167,8 +171,9 @@ app.post("/api/daily-inspiration", async (req, res) => {
   } catch (err: any) {
     console.error("Inspiration Error:", err);
     let message = err.message || "Failed to fetch inspiration";
-    if (message.includes("API KEY NOT VALID") || message.includes("400")) {
-      message = "Gemini API Key 校验失败。请在 Vercel 环境变量中检查 GEMINI_API_KEY 是否配置正确。";
+    const errStr = JSON.stringify(err).toLowerCase();
+    if (errStr.includes("api key") || errStr.includes("invalid") || errStr.includes("400")) {
+      message = "Gemini API Key 无效。请确保环境变量名为 GEMINI_API_KEY 且值正确。";
     }
     res.status(500).json({ error: message });
   }

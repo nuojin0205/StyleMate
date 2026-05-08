@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Camera, Plus, Search, Filter, Loader2, X, Check, Trash2, Shirt } from 'lucide-react';
-import { useAuth } from '../App';
+import { useAuth } from '../context/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { analyzeClothingImage } from '../services/geminiService';

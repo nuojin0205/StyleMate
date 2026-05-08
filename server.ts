@@ -13,18 +13,34 @@ async function startServer() {
   app.use(cors());
   app.use(express.json({ limit: '10mb' }));
 
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+  // Helper to get AI client with fresh env variables
+  const getAIClient = () => {
+    const key = process.env.GEMINI_API_KEY || '';
+    if (!key) throw new Error("GEMINI_API_KEY_MISSING");
+    return new GoogleGenAI({ apiKey: key });
+  };
 
   // API Routes
   const router = express.Router();
 
   router.get("/health", (req, res) => {
-    res.json({ status: "ok", hasKey: !!process.env.GEMINI_API_KEY });
+    const key = process.env.GEMINI_API_KEY || '';
+    const maskedKey = key.length > 8 
+      ? `${key.slice(0, 4)}...${key.slice(-4)}`
+      : (key ? 'Key found but too short' : 'Not found');
+      
+    res.json({ 
+      status: "ok", 
+      hasKey: !!key,
+      keySnapshot: maskedKey,
+      environment: process.env.VERCEL ? 'Vercel Production' : 'AI Studio Preview'
+    });
   });
 
   router.post("/analyze-clothing", async (req, res) => {
     try {
       const { base64Image } = req.body;
+      const ai = getAIClient();
       const response = await ai.models.generateContent({
         model: "gemini-1.5-flash",
         contents: [
@@ -69,6 +85,7 @@ async function startServer() {
   router.post("/outfit-recommendations", async (req, res) => {
     try {
       const { prompt } = req.body;
+      const ai = getAIClient();
       const response = await ai.models.generateContent({
         model: "gemini-1.5-flash",
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -116,6 +133,7 @@ async function startServer() {
   router.post("/daily-inspiration", async (req, res) => {
     try {
       const { prompt } = req.body;
+      const ai = getAIClient();
       const response = await ai.models.generateContent({
         model: "gemini-1.5-flash",
         contents: [{ role: 'user', parts: [{ text: prompt }] }],

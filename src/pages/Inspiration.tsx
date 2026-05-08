@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Search, Filter, Bookmark, ExternalLink, Hash, Star, LayoutGrid, List } from 'lucide-react';
+import { Search, Filter, Bookmark, ExternalLink, Hash, Star, LayoutGrid, List, Shirt } from 'lucide-react';
 
 const INSPO_DATA = [
   {
@@ -62,6 +62,7 @@ const INSPO_DATA = [
 export default function Inspiration() {
   const [filter, setFilter] = useState('All');
   const [viewMode, setViewMode] = useState<'grid' | 'masonry'>('grid');
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
   return (
     <div className="max-w-7xl mx-auto px-6 space-y-12">
@@ -133,10 +134,21 @@ export default function Inspiration() {
              className="flex flex-col space-y-6 group"
            >
              <div className="relative aspect-[3/4] overflow-hidden rounded-[2rem] bg-sand-200">
+                {/* Fallback Placeholder */}
+                {(imageErrors[item.id]) && (
+                  <div className="absolute inset-0 bg-gradient-to-br from-sand-300 to-sand-400 flex items-center justify-center p-8">
+                    <div className="text-center">
+                      <Shirt size={48} className="text-ink/10 mx-auto mb-4" />
+                      <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-ink/20">{item.source}</p>
+                    </div>
+                  </div>
+                )}
+                
                 <img 
                   src={item.imageUrl} 
                   alt={item.title} 
-                  className="w-full h-full object-cover grayscale opacity-90 group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-105 transition-all duration-1000 ease-out"
+                  onError={() => setImageErrors(prev => ({ ...prev, [item.id]: true }))}
+                  className={`w-full h-full object-cover transition-all duration-1000 ease-out ${imageErrors[item.id] ? 'opacity-0' : 'grayscale opacity-90 group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-105'}`}
                 />
                 <div className="absolute top-6 right-6">
                   <button className="p-3 bg-white/20 backdrop-blur-md rounded-full text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-white hover:text-ink">

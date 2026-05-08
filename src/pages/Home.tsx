@@ -1,13 +1,83 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CloudSun, ArrowRight, RefreshCw, Bookmark, Share2, Compass, ChevronRight, Shirt, Settings, Ruler, ChevronLeft, Loader2 } from 'lucide-react';
-import { useAuth } from '../App';
+import { useAuth } from '../context/AuthContext';
 import { getOutfitRecommendations, OutfitRecommendation, getDailyInspiration, StyleInspiration } from '../services/geminiService';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, getDocs, query, limit, doc, getDoc, updateDoc } from 'firebase/firestore';
 
 const STYLES = ['Gentle (温柔)', 'Casual (休闲)', 'Formal (正式)', 'Sporty (运动)', 'High-End (气质)', 'Outdoor (户外)'];
 const SCENES = ['Class/Work (上课/通勤)', 'Date (约会)', 'Dining (聚餐)', 'Gym (健身)', 'Travel (旅行)'];
+
+const MOCK_RECOMMENDATIONS: OutfitRecommendation[] = [
+  {
+    items: [
+      { name: 'Classic Trench Coat', category: 'Outerwear', imageUrl: 'https://images.unsplash.com/photo-1591047139829-d91aec16adcd?auto=format&fit=crop&q=80&w=400' },
+      { name: 'White Silk Blouse', category: 'Top', imageUrl: 'https://images.unsplash.com/photo-1534126416832-a88fdf2911c2?auto=format&fit=crop&q=80&w=400' },
+      { name: 'Wide Leg Trousers', category: 'Bottom', imageUrl: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&q=80&w=400' }
+    ],
+    reason: "A timeless Parisian-inspired look perfect for transitional weather and versatile enough for work or casual dates.",
+    style: "Parisian Chic",
+    visualPrompt: "modern minimalist fashion editorial, woman in cream trench coat and white trousers, white background"
+  },
+  {
+    items: [
+      { name: 'Oversized Knit Sweater', category: 'Top', imageUrl: 'https://images.unsplash.com/photo-1574015974293-817f0efebb19?auto=format&fit=crop&q=80&w=400' },
+      { name: 'Pleated Midi Skirt', category: 'Bottom', imageUrl: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&q=80&w=400' },
+      { name: 'Leather Boots', category: 'Shoes', imageUrl: 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?auto=format&fit=crop&q=80&w=400' }
+    ],
+    reason: "A cozy yet elegant combination that balances comfort and structure, ideal for autumn gallery visits or dinners.",
+    style: "Gentle Minimalist",
+    visualPrompt: "soft lighting fashion photo, woman in beige knit and olive pleated skirt, minimalist aesthetics"
+  }
+];
+
+const MOCK_INSPIRATIONS: StyleInspiration[] = [
+  {
+    title: 'Modern Minimalism',
+    source: 'Vogue',
+    styles: ['Minimalist', 'Structured', 'Monochrome'],
+    items: ['Tailored Blazer', 'Straight Jeans', 'Ankle Boots', 'Gold Hoops'],
+    temp: '15°C - 22°C',
+    scene: 'Office / City Walk',
+    celebrity: 'Hailey Bieber',
+    url: 'vogue.com/fashion',
+    imageUrl: '1539109132314-34a9c66d1896'
+  },
+  {
+    title: 'Retro Revival',
+    source: 'Elle',
+    styles: ['Vintage', 'Patterned', 'Bold'],
+    items: ['Flared Trousers', 'Floral Blouse', 'Platform Sandals', 'Scarf'],
+    temp: '20°C - 28°C',
+    scene: 'Social Event',
+    celebrity: 'Lisa',
+    url: 'elle.com',
+    imageUrl: '1485230895905-ec40ba36bc10'
+  },
+  {
+    title: 'Scandinavian Street',
+    source: 'Harper\'s Bazaar',
+    styles: ['Clean', 'Oversized', 'Cool'],
+    items: ['Puffer Jacket', 'Cargo Pants', 'Chunky Sneakers', 'Beanie'],
+    temp: '5°C - 15°C',
+    scene: 'Travel',
+    celebrity: 'Jennie Kim',
+    url: 'harpersbazaar.com',
+    imageUrl: '1483985988355-763728e1935b'
+  },
+  {
+    title: 'After Dark Elegance',
+    source: 'Marie Claire',
+    styles: ['Sleek', 'Sophisticated', 'Glam'],
+    items: ['Slip Dress', 'Faux Fur Coat', 'Stiletto Heels', 'Clutch'],
+    temp: '18°C - 25°C',
+    scene: 'Evening Dinner',
+    celebrity: 'Ni Ni',
+    url: 'marieclaire.com',
+    imageUrl: '1490481651871-ab68de25d43d'
+  }
+];
 
 export default function Home() {
   const { user } = useAuth();
@@ -23,8 +93,11 @@ export default function Home() {
   const [generatingDetail, setGeneratingDetail] = useState<number | null>(null);
   const [inspirations, setInspirations] = useState<StyleInspiration[]>([]);
   const [loadingInspo, setLoadingInspo] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
   const [generatedImages, setGeneratedImages] = useState<Record<number, string>>({});
+  const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
 
   const [error, setError] = useState<string | null>(null);
 
@@ -86,13 +159,14 @@ export default function Home() {
     try {
       const ins = await getDailyInspiration(weather, style);
       setInspirations(ins);
+      setIsDemoMode(false);
+      setImageErrors({});
     } catch (err: any) {
       console.error("Error fetching inspirations:", err);
-      let msg = err.message || "AI Service unavailable.";
-      if (msg.includes("Key") || msg.includes("API")) {
-        msg = "AI 服务的 API Key 无效或未设置。请在 Vercel 或环境配置中检查 GEMINI_API_KEY。";
-      }
-      setError(msg);
+      // Fallback to mock data
+      setInspirations(MOCK_INSPIRATIONS);
+      setIsDemoMode(true);
+      setImageErrors({});
     } finally {
       setLoadingInspo(false);
     }
@@ -108,14 +182,13 @@ export default function Home() {
       const recs = await getOutfitRecommendations(wardrobe, weather, style, scene, measurements);
       if (recs && Array.isArray(recs)) {
         setRecommendations(recs);
+        setIsDemoMode(false);
       }
     } catch (err: any) {
       console.error("Error generating outfit:", err);
-      let msg = err.message || "Outfit generation failed.";
-      if (msg.includes("Key") || msg.includes("API") || msg.includes("400")) {
-        msg = "AI 服务的 API Key 无效或未设置。请在 Vercel 环境变量中配置 GEMINI_API_KEY。";
-      }
-      setError(msg);
+      // Fallback to mock data
+      setRecommendations(MOCK_RECOMMENDATIONS);
+      setIsDemoMode(true);
     } finally {
       setLoading(false);
     }
@@ -125,8 +198,6 @@ export default function Home() {
     if (generatingDetail === index) return;
     setGeneratingDetail(index);
     try {
-      // In a real app, this would call a backend for high-quality DALL-E/Midjourney generation
-      // For this demo, we use a sophisticated simulated "Dress-up" visualization
       await new Promise(resolve => setTimeout(resolve, 2000));
       setGeneratedImages(prev => ({ ...prev, [index]: 'VISUALIZED' }));
     } catch (err) {
@@ -147,7 +218,6 @@ export default function Home() {
 
   return (
     <div className="max-w-4xl mx-auto px-6 space-y-12 pb-24">
-      {/* Header */}
       <section className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-1">
@@ -214,7 +284,6 @@ export default function Home() {
         </AnimatePresence>
       </section>
 
-      {/* Selectors */}
       <section className="space-y-6">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -249,47 +318,60 @@ export default function Home() {
           </div>
         </div>
 
-      {error && (
+        {isDemoMode && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-accent/5 border border-accent/10 p-3 rounded-2xl flex items-center justify-between"
+          >
+            <p className="text-[10px] text-accent font-medium uppercase tracking-widest pl-2">
+              Using demo recommendations. Connect Gemini API for live AI styling.
+            </p>
+            <button 
+              onClick={async (e) => {
+                const btn = e.currentTarget;
+                const originalText = btn.innerText;
+                btn.innerText = 'Checking...';
+                setTestResult('Connecting to service...');
+                try {
+                  const res = await fetch('/api/health');
+                  const data = await res.json();
+                  if (data.hasKey) {
+                    setTestResult(`✅ API Connected!\nEnvironment: ${data.environment}\nKey: ${data.keySnapshot}`);
+                    setIsDemoMode(false);
+                    // Refresh data
+                    fetchInspirations();
+                  } else {
+                    setTestResult(`❌ Key missing in ${data.environment}.\nCheck GEMINI_API_KEY.`);
+                  }
+                } catch (err) {
+                  setTestResult('❌ Network error. Check deployment.');
+                } finally {
+                  btn.innerText = originalText;
+                }
+              }}
+              className="text-[9px] uppercase tracking-widest font-bold text-accent bg-white/50 px-4 py-1.5 rounded-full hover:bg-white transition-colors"
+            >
+              Test API
+            </button>
+          </motion.div>
+        )}
+
+        {testResult && (
           <motion.div 
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
-            className="bg-red-50 border border-red-100 p-6 rounded-[32px] space-y-4"
+            className="bg-white/50 border border-accent/10 p-4 rounded-2xl overflow-hidden"
           >
-            <div className="flex flex-col items-center text-center space-y-2">
-              <p className="text-xs text-red-500 font-bold uppercase tracking-widest">{error}</p>
-              <div className="pt-4 space-y-3">
-                <p className="text-[10px] text-ink/40 font-medium leading-relaxed">
-                  如果您在 Vercel 预览：<br/>
-                  1. 请确保已点击编辑器右上角 <span className="font-bold text-accent">"Export to GitHub"</span><br/>
-                  2. 在 Vercel 项目设置中添加环境变量 <span className="font-mono text-accent">GEMINI_API_KEY</span><br/>
-                  3. 添加后执行一次 <span className="font-bold text-accent">Redeploy</span>。
-                </p>
-                <button 
-                  onClick={async (e) => {
-                    const btn = e.currentTarget;
-                    btn.innerText = '正在检测...';
-                    try {
-                      const res = await fetch('/api/health');
-                      if (!res.ok) {
-                        const text = await res.text();
-                        alert(`连接失败！\n\nHTTP 状态码: ${res.status}\n返回内容: ${text.slice(0, 100)}\n\n这通常意味着 Vercel 接口路由没生效，请确认是通过 Export 部署的。`);
-                      } else {
-                        const data = await res.json();
-                        alert(`✅ API 连接成功！\n\n1. 连通状态：${data.status}\n2. 环境 Key 存在：${data.hasKey ? '是' : '否'}\n3. Key 预览：${data.keySnapshot}\n\n如果提示 Found 但报错 400，说明 Key 复制错了；如果提示 Not found，说明环境变量名不对。`);
-                      }
-                    } catch (err: any) {
-                      console.error(err);
-                      alert(`无法连接！错误信息: ${err.message}\n\n请确认已点击 Export to GitHub 并在 Vercel 完成部署。`);
-                    } finally {
-                      btn.innerText = '测试 API 配置';
-                    }
-                  }}
-                  className="text-[9px] uppercase tracking-widest font-bold text-accent border border-accent/20 px-4 py-1.5 rounded-full hover:bg-accent/5 transition-colors"
-                >
-                  测试 API 配置
-                </button>
-              </div>
-            </div>
+            <pre className="text-[9px] text-ink/70 font-mono whitespace-pre-wrap leading-relaxed">
+              {testResult}
+            </pre>
+            <button 
+              onClick={() => setTestResult(null)}
+              className="mt-2 text-[8px] uppercase tracking-widest text-ink/40 hover:text-ink transition-colors"
+            >
+              Close Status
+            </button>
           </motion.div>
         )}
 
@@ -308,7 +390,6 @@ export default function Home() {
         </button>
       </section>
       
-      {/* Result Card */}
       {recommendations.length > 0 && (
         <motion.section 
           initial={{ opacity: 0, y: 20 }}
@@ -367,8 +448,12 @@ export default function Home() {
                               <img src={match.imageUrl} className="w-full h-full object-cover" alt={item.name} />
                             </div>
                           ) : (
-                            <div className="w-14 h-14 rounded-2xl bg-sand-100 border border-ink/5 flex items-center justify-center group-hover:scale-105 transition-transform">
-                              <Shirt size={18} className="text-ink/20" />
+                            <div className="w-14 h-14 rounded-2xl bg-sand-100 border border-ink/5 flex items-center justify-center group-hover:scale-105 transition-transform overflow-hidden">
+                              {(item as any).imageUrl ? (
+                                <img src={(item as any).imageUrl} className="w-full h-full object-cover" alt={item.name} />
+                              ) : (
+                                <Shirt size={18} className="text-ink/20" />
+                              )}
                             </div>
                           )}
                           <div className="space-y-1">
@@ -403,7 +488,6 @@ export default function Home() {
                 <div className="relative aspect-[4/5] glass rounded-[32px] overflow-hidden flex items-center justify-center p-8 bg-white/20 group">
                   <div className="absolute inset-0 bg-gradient-to-tr from-accent/5 to-transparent opacity-50"></div>
                   
-                  {/* Mannequin Base Layer */}
                   <div className="relative w-full h-full flex flex-col items-center justify-center">
                     <svg viewBox="0 0 200 500" className="w-[80%] h-full text-accent/10 fill-current drop-shadow-2xl">
                       {(() => {
@@ -420,7 +504,6 @@ export default function Home() {
                             initial={false}
                             transition={{ duration: 0.5 }}
                            >
-                             {/* Headless Body Silhouette */}
                              <motion.path 
                                animate={{
                                  d: `M 100 80 
@@ -440,79 +523,74 @@ export default function Home() {
                       })()}
                     </svg>
 
-                    {/* Dressed Items Layer */}
-                    <AnimatePresence>
-                      {generatedImages[activeIndex] === 'VISUALIZED' && (
-                        <motion.div 
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="absolute inset-0 flex items-center justify-center p-8 pointer-events-none"
-                        >
-                          <div className="relative w-full h-full max-w-[280px]">
-                            {recommendations[activeIndex].items.map((recItem, idx) => {
-                              const item = recItem.id ? wardrobe.find(w => w.id === recItem.id) : null;
-                              if (!item) return null;
-                              
-                              const pos = getPositionForCategory(recItem.category || item.category);
-                              
-                              return (
-                                <motion.div
-                                  key={`${item.id}-${idx}`}
-                                  initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                                  transition={{ delay: idx * 0.2, type: 'spring', damping: 15 }}
-                                  style={{ 
-                                    position: 'absolute',
-                                    top: pos.top,
-                                    left: '50%',
-                                    transform: 'translateX(-50%)',
-                                    height: pos.height,
-                                    width: '100%',
-                                    zIndex: pos.z
-                                  }}
-                                  className="flex items-center justify-center"
-                                >
-                                  <div className="relative w-full h-full">
-                                    <img 
-                                      src={item.imageUrl} 
-                                      alt={item.name}
-                                      referrerPolicy="no-referrer"
-                                      className="w-full h-full object-contain mix-blend-multiply opacity-95 drop-shadow-2xl filter contrast-125 saturate-110"
-                                    />
-                                    {/* Stylized UI annotation */}
-                                    <motion.div 
-                                      initial={{ x: 20, opacity: 0 }}
-                                      animate={{ x: 0, opacity: 1 }}
-                                      transition={{ delay: idx * 0.2 + 0.5 }}
-                                      className="absolute -right-8 top-1/2 -translate-y-1/2 flex items-center space-x-2"
-                                    >
-                                      <div className="w-1.5 h-1.5 rounded-full bg-accent shadow-[0_0_8px_rgba(var(--accent-rgb),0.5)]" />
-                                      <span className="text-[7px] font-bold uppercase tracking-widest bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded shadow-sm text-ink whitespace-nowrap border border-ink/5">
-                                        {item.name}
-                                      </span>
-                                    </motion.div>
-                                  </div>
-                                </motion.div>
-                              );
-                            })}
-                          </div>
-                        </motion.div>
-                      )}
+                    <AnimatePresence mode="wait">
+                      <motion.div 
+                        key={activeIndex}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 flex items-center justify-center p-8 pointer-events-none"
+                      >
+                        <div className="relative w-full h-full max-w-[280px]">
+                          {recommendations[activeIndex].items.map((recItem, idx) => {
+                            const item = recItem.id ? wardrobe.find(w => w.id === recItem.id) : recItem;
+                            if (!item || (!item.id && !(item as any).imageUrl)) return null;
+                            
+                            const pos = getPositionForCategory(recItem.category || item.category);
+                            
+                            return (
+                              <motion.div
+                                key={`${(item as any).id || idx}-${idx}`}
+                                initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                transition={{ delay: idx * 0.1, type: 'spring', damping: 15 }}
+                                style={{ 
+                                  position: 'absolute',
+                                  top: pos.top,
+                                  left: '50%',
+                                  transform: 'translateX(-50%)',
+                                  height: pos.height,
+                                  width: '100%',
+                                  zIndex: pos.z
+                                }}
+                                className="flex items-center justify-center"
+                              >
+                                <div className="relative w-full h-full">
+                                  <img 
+                                    src={(item as any).imageUrl} 
+                                    alt={item.name}
+                                    referrerPolicy="no-referrer"
+                                    className="w-full h-full object-contain mix-blend-multiply opacity-95 drop-shadow-2xl filter contrast-125 saturate-110"
+                                  />
+                                  <motion.div 
+                                    initial={{ x: 20, opacity: 0 }}
+                                    animate={{ x: 0, opacity: 1 }}
+                                    transition={{ delay: idx * 0.1 + 0.3 }}
+                                    className="absolute -right-8 top-1/2 -translate-y-1/2 flex items-center space-x-2"
+                                  >
+                                    <div className="w-1.5 h-1.5 rounded-full bg-accent shadow-[0_0_8px_rgba(var(--accent-rgb),0.5)]" />
+                                    <span className="text-[7px] font-bold uppercase tracking-widest bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded shadow-sm text-ink whitespace-nowrap border border-ink/5">
+                                      {item.name}
+                                    </span>
+                                  </motion.div>
+                                </div>
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
                     </AnimatePresence>
 
-                    {/* Virtual Fit Badge */}
                     <div className="absolute top-6 flex flex-col items-center">
                        <p className="text-[10px] uppercase tracking-[0.4em] font-bold text-accent/60">Virtual Fit</p>
                     </div>
 
-                    {/* Item Bubbles (Summary) */}
                     <div className="absolute bottom-24 flex -space-x-3">
-                      {recommendations[activeIndex].items.map(recItem => {
-                        const item = recItem.id ? wardrobe.find(w => w.id === recItem.id) : null;
-                        return item ? (
-                          <div key={item.id} className="w-12 h-12 rounded-full border-2 border-white overflow-hidden shadow-lg rotate-3 odd:-rotate-3 translate-y-2 group-hover:translate-y-0 transition-transform">
-                            <img src={item.imageUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                      {recommendations[activeIndex].items.map((recItem, idx) => {
+                        const item = recItem.id ? wardrobe.find(w => w.id === recItem.id) : recItem;
+                        return (item as any)?.imageUrl ? (
+                          <div key={(item as any).id || idx} className="w-12 h-12 rounded-full border-2 border-white overflow-hidden shadow-lg rotate-3 odd:-rotate-3 translate-y-2 group-hover:translate-y-0 transition-transform">
+                            <img src={(item as any).imageUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
                           </div>
                         ) : null;
                       })}
@@ -544,7 +622,6 @@ export default function Home() {
         </motion.section>
       )}
 
-      {/* Quick Inspiration Preview */}
       <section className="space-y-6">
         <div className="flex items-end justify-between">
           <div className="space-y-1">
@@ -562,65 +639,81 @@ export default function Home() {
               <div key={i} className="aspect-[3/4] bg-sand-100 animate-pulse rounded-[32px]"></div>
             ))
           ) : inspirations.map((inspo, i) => {
-            const fashionIds = [
-              '1539109132314-34a9c66d1896', // Modern Editorial
-              '1483985988355-763728e1935b', // Luxury Shopping
-              '1490481651871-ab68de25d43d', // Street Style
-              '1485230895905-ec40ba36bc10'  // Minimalist Fashion
-            ];
-            const imageId = fashionIds[i % fashionIds.length];
+    const fashionIds = [
+      '1539109132314-34a9c66d1896', // Modern Chic
+      '1483985988355-763728e1935b', // Street
+      '1506629864154-131f1396261f', // Autumn Elegant
+      '1490481651871-ab68de25d43d'  // Classic
+    ];
+    const imageId = fashionIds[i % fashionIds.length];
+    const hasError = imageErrors[i];
+    const colors = [
+      'from-slate-400 to-slate-500',
+      'from-stone-400 to-stone-500',
+      'from-zinc-400 to-zinc-500',
+      'from-neutral-400 to-neutral-500'
+    ];
+    const bgGradient = colors[i % colors.length];
 
-            return (
-              <motion.a
-                key={i}
-                href={inspo.url.startsWith('http') ? inspo.url : `https://${inspo.url}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className="group relative aspect-[3/4] rounded-[32px] overflow-hidden bg-sand-200 border border-ink/5 block cursor-pointer"
-              >
-                <img 
-                  src={`https://images.unsplash.com/photo-${imageId}?auto=format&fit=crop&q=80&w=400&h=533`} 
-                  alt={inspo.title} 
-                  className="w-full h-full object-cover transition-all duration-1000 group-hover:scale-110 grayscale-50 group-hover:grayscale-0"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-ink/90 via-ink/20 to-transparent opacity-80 group-hover:opacity-95 transition-opacity"></div>
+    return (
+      <motion.a
+        key={i}
+        href={inspo.url.startsWith('http') ? inspo.url : `https://${inspo.url}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: i * 0.1 }}
+        className="group relative aspect-[3/4] rounded-[32px] overflow-hidden bg-sand-200 border border-ink/5 block cursor-pointer"
+      >
+        {/* Placeholder Background (Solid color with text fallback) */}
+        <div className={`absolute inset-0 bg-gradient-to-br ${bgGradient} flex items-center justify-center p-8 opacity-40`}>
+          <div className="text-center">
+            <Shirt size={48} className="text-white/20 mx-auto mb-4" />
+            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/40">{inspo.title}</p>
+          </div>
+        </div>
+
+        {!hasError && (
+          <img 
+            src={`https://images.unsplash.com/photo-${imageId}?auto=format&fit=crop&q=80&w=800&h=1000`} 
+            alt={inspo.title} 
+            onError={() => setImageErrors(prev => ({ ...prev, [i]: true }))}
+            className="absolute inset-0 w-full h-full object-cover transition-all duration-1000 group-hover:scale-110 grayscale-20 group-hover:grayscale-0"
+          />
+        )}
+                {/* Gradient overlay for better text contrast */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-70 group-hover:opacity-90 transition-opacity"></div>
                 
-                <div className="absolute inset-0 p-6 flex flex-col justify-end text-white">
-                  <div className="space-y-3 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-500">
+                <div className="absolute inset-0 p-5 flex flex-col justify-end text-white">
+                  <div className="space-y-3">
                     <div className="flex justify-between items-start">
                       <div className="space-y-0.5">
-                        <p className="text-[9px] uppercase tracking-[0.2em] font-bold text-accent">{inspo.source}</p>
-                        <h4 className="serif text-xl leading-tight">{inspo.title}</h4>
+                        <p className="text-[8px] uppercase tracking-[0.2em] font-bold text-accent/90">{inspo.source}</p>
+                        <h4 className="serif text-lg leading-tight group-hover:text-accent transition-colors">{inspo.title}</h4>
                       </div>
-                      <span className="text-[8px] bg-white/10 px-2 py-1 rounded-md font-bold">{inspo.temp}</span>
+                      <span className="text-[8px] bg-white/20 backdrop-blur-md px-2 py-1 rounded-md font-bold whitespace-nowrap">{inspo.temp}</span>
                     </div>
                     
                     <div className="flex flex-wrap gap-1">
                       {inspo.styles.slice(0, 2).map(s => (
-                        <span key={s} className="text-[8px] border border-white/30 px-2 py-0.5 rounded-full uppercase tracking-widest">{s}</span>
+                        <span key={s} className="text-[7px] border border-white/30 bg-white/5 backdrop-blur-sm px-2 py-0.5 rounded-full uppercase tracking-widest">{s}</span>
                       ))}
                     </div>
 
-                    <div className="pt-2 border-t border-white/10">
-                      <p className="text-[9px] text-white/50 mb-1 uppercase tracking-widest font-bold">Outfit Breakdown</p>
-                      <p className="text-[10px] line-clamp-2 text-white/90 leading-relaxed font-light">{inspo.items.join(' · ')}</p>
+                    <div className="pt-2 border-t border-white/10 space-y-1">
+                      <p className="text-[8px] text-white/40 uppercase tracking-widest font-bold">Outfit Breakdown</p>
+                      <p className="text-[9px] line-clamp-2 text-white/80 leading-relaxed font-light">{inspo.items.join(' · ')}</p>
                     </div>
 
-                    <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-center justify-between pt-2">
                       <div className="flex flex-col">
-                        <span className="text-[8px] text-white/40 uppercase tracking-widest">Icon</span>
-                        <span className="text-[10px] italic text-accent font-medium">{inspo.celebrity}</span>
+                        <span className="text-[7px] text-white/40 uppercase tracking-widest pb-0.5">Fashion Icon</span>
+                        <span className="text-[10px] italic text-accent/90 font-medium">{inspo.celebrity}</span>
                       </div>
-                      <div className="bg-accent/20 p-2 rounded-full transform group-hover:rotate-12 transition-transform">
+                      <div className="bg-accent/20 p-2 rounded-full border border-accent/20 transform group-hover:rotate-12 transition-transform">
                          <Compass size={12} className="text-white" />
                       </div>
-                    </div>
-                    
-                    <div className="text-[9px] text-white/40 font-bold uppercase tracking-[0.2em] opacity-0 group-hover:opacity-100 transition-opacity">
-                      {inspo.scene}
                     </div>
                   </div>
                 </div>

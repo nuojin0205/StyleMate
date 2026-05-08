@@ -1,81 +1,26 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shirt, Sparkles, BookOpen, User, Plus, Camera, Loader2, LogIn, CloudSun } from 'lucide-react';
-import { auth, db } from './lib/firebase';
-import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { Shirt, Sparkles, BookOpen, User, Loader2, LogIn } from 'lucide-react';
+import { auth } from './lib/firebase';
+
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Pages
 import Home from './pages/Home';
 import Wardrobe from './pages/Wardrobe';
 import Inspiration from './pages/Inspiration';
 
-// Context
-const AuthContext = createContext<{ user: any; loading: boolean; signIn: () => void; logout: () => void }>({
-  user: null,
-  loading: true,
-  signIn: () => {},
-  logout: () => {},
-});
-
-export const useAuth = () => useContext(AuthContext);
-
 export default function App() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  return (
+    <AuthProvider>
+      <AppWrapper />
+    </AuthProvider>
+  );
+}
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      try {
-        if (u) {
-          // Immediately set user to unblock UI
-          setUser(u);
-          
-          // Background sync with Firestore
-          const userRef = doc(db, 'users', u.uid);
-          const userSnap = await getDoc(userRef).catch(err => {
-            console.error("Firestore sync error:", err);
-            return null;
-          });
-
-          if (userSnap && !userSnap.exists()) {
-            await setDoc(userRef, {
-              userId: u.uid,
-              name: u.displayName,
-              email: u.email,
-              preferences: { styles: [], location: '' },
-            }).catch(err => console.error("User creation error:", err));
-          }
-        } else {
-          setUser(null);
-        }
-      } catch (err) {
-        console.error("Auth change error:", err);
-      } finally {
-        setLoading(false);
-      }
-    });
-    return unsubscribe;
-  }, []);
-
-  const signIn = async () => {
-    const provider = new GoogleAuthProvider();
-    setLoading(true);
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (err: any) {
-      console.error(err);
-      if (err.code === 'auth/popup-blocked') {
-        alert('Popup was blocked by your browser. Please allow popups or open the app in a new tab.');
-      } else {
-        alert('Login failed: ' + err.message);
-      }
-      setLoading(false);
-    }
-  };
-
-  const logout = () => signOut(auth);
+function AppWrapper() {
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -86,13 +31,11 @@ export default function App() {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, logout }}>
-      <Router>
-        <div className="min-h-screen pb-20 md:pb-0 md:pt-0">
-          {!user ? <LoginView /> : <MainLayout />}
-        </div>
-      </Router>
-    </AuthContext.Provider>
+    <Router>
+      <div className="min-h-screen pb-20 md:pb-0 md:pt-0">
+        {!user ? <LoginView /> : <MainLayout />}
+      </div>
+    </Router>
   );
 }
 
@@ -130,23 +73,12 @@ function MainLayout() {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Bottom Nav for Mobile, Sidebar for Desktop */}
-      <main className="flex-1 overflow-y-auto scroll-smooth">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="pb-32 pt-12 md:pt-20"
-          >
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/wardrobe" element={<Wardrobe />} />
-              <Route path="/inspiration" element={<Inspiration />} />
-            </Routes>
-          </motion.div>
-        </AnimatePresence>
+      <main className="flex-1 overflow-y-auto scroll-smooth pb-32 pt-12 md:pt-20">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/wardrobe" element={<Wardrobe />} />
+          <Route path="/inspiration" element={<Inspiration />} />
+        </Routes>
       </main>
 
       {/* Navigation */}
