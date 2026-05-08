@@ -21,10 +21,20 @@ service cloud.firestore {
         && data.email.size() < 256;
     }
 
+    function isMeasurementValid(data) {
+       return data == null || (
+         (data.height == null || data.height is number) &&
+         (data.weight == null || data.weight is number) &&
+         (data.bust == null || data.bust is number) &&
+         (data.waist == null || data.waist is number) &&
+         (data.hips == null || data.hips is number)
+       );
+    }
+
     function isValidClothing(data) {
       return data.userId == request.auth.uid
         && data.category in ['tops', 'bottoms', 'dresses', 'outerwear', 'shoes', 'bags', 'accessories']
-        && data.imageUrl is string && data.imageUrl.size() < 1024
+        && data.imageUrl is string && data.imageUrl.size() < 1000000
         && (data.thickness == null || data.thickness in ['thin', 'medium', 'thick'])
         && (data.seasons == null || data.seasons is list)
         && (data.styles == null || data.styles is list);
@@ -41,7 +51,8 @@ service cloud.firestore {
       allow get: if isOwner(userId);
       allow create: if isOwner(userId) && isValidUser(incoming());
       allow update: if isOwner(userId) && isValidUser(incoming()) 
-        && incoming().diff(existing()).affectedKeys().hasOnly(['preferences', 'name']);
+        && isMeasurementValid(incoming().get('measurements', null))
+        && incoming().diff(existing()).affectedKeys().hasOnly(['preferences', 'name', 'measurements']);
       
       match /clothes/{itemId} {
         allow list: if isOwner(userId);

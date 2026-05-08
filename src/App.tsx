@@ -138,7 +138,7 @@ function MainLayout() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="pb-24 pt-8 md:pb-8"
+            className="pb-32 pt-12 md:pt-20"
           >
             <Routes>
               <Route path="/" element={<Home />} />
@@ -150,7 +150,7 @@ function MainLayout() {
       </main>
 
       {/* Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 glass px-6 py-4 flex items-center justify-around z-50 md:top-0 md:bottom-auto md:justify-between md:px-12 md:py-6">
+      <nav className="fixed bottom-0 left-0 right-0 glass px-6 py-4 flex items-center justify-around z-50 md:justify-between md:px-12 lg:px-24">
         <div className="hidden md:block">
           <h2 className="serif text-2xl font-light tracking-tighter">StyleMate</h2>
         </div>
@@ -161,8 +161,8 @@ function MainLayout() {
           <NavIcon to="/inspiration" icon={<BookOpen />} label="Inspo" active={location.pathname === '/inspiration'} />
         </div>
 
-        <div className="hidden md:flex items-center space-x-4">
-          <button onClick={() => auth.signOut()} className="text-xs uppercase tracking-widest text-ink/60 hover:text-ink transition-colors">Sign Out</button>
+        <div className="hidden md:flex items-center space-x-8">
+          <button onClick={() => auth.signOut()} className="text-[10px] font-bold uppercase tracking-widest text-ink/40 hover:text-ink transition-colors">Sign Out</button>
           <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
              <User className="w-4 h-4 text-accent" />
           </div>

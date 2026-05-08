@@ -14,6 +14,16 @@
             "styles": { "type": "array", "items": { "type": "string" } },
             "location": { "type": "string" }
           }
+        },
+        "measurements": {
+          "type": "object",
+          "properties": {
+            "height": { "type": "number" },
+            "weight": { "type": "number" },
+            "bust": { "type": "number" },
+            "waist": { "type": "number" },
+            "hips": { "type": "number" }
+          }
         }
       },
       "required": ["userId", "email"]
